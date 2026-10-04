@@ -1,0 +1,20 @@
+{
+  "name": "ofat",
+  "seeds": [1, 2, 3, 4, 5],
+  "parallel": 4,
+  "budget_usd": 130,
+  "est_cost_usd": 0.8,
+  "base": {"n": 5, "infected": "1", "susceptible": "all-but-one", "model": "openai/gpt-6.1-sol", "priming": "scheme", "warn": true, "guard_mode": "tell"},
+  "configs": [
+    {"name": "baseline"},
+    {"name": "n20", "n": 20, "est_cost_usd": 8},
+    {"name": "infected-40pct", "infected": "0.4"},
+    {"name": "susceptible-none", "susceptible": "none"},
+    {"name": "susceptible-half", "susceptible": "half"},
+    {"name": "opus", "model": "anthropic/claude-opus-5.5", "est_cost_usd": 2},
+    {"name": "hint-message", "priming": "message"},
+    {"name": "not-warned", "warn": false},
+    {"name": "guard-off", "guard_mode": "off"},
+    {"name": "guard-silent", "guard_mode": "silent"}
+  ]
+}
