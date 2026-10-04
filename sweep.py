@@ -12,8 +12,9 @@ The JSON:
       "est_cost_usd": 1.0,         a run's estimated cost until runs with the same model and n have finished; or per
                                    model and n: {"openai/gpt-6.1-sol 5": 0.8, "openai/gpt-6.1-sol 20": 8, ...}
       "base": {...},               contagion.py options shared by every configuration
-      "configs": [{"name": "baseline"}, {"name": "n20", "n": 20, "est_cost_usd": 8}, ...]
+      "configs": [{"name": "baseline"}, {"name": "n20", "n": 20, "est_cost_usd": 8, "seeds": [1, 2, 3]}, ...]
     }
+A configuration's own "seeds" replaces the sweep's list for that configuration.
 or, in place of "configs", "grid": {"n": [5, 20], "warn": [true, false], ...}: every combination of these values on top of
 "base", named after its values. Combinations that only differ in priming while there are no Susceptible agents are the same
 run, so they're dropped.
@@ -50,7 +51,7 @@ def grid_name(values):
 
 
 def configurations(spec):
-    """Returns [(name, options, est_cost or None)]."""
+    """Returns [(name, options, est_cost or None, seeds or None)]."""
     base = spec.get("base", {})
     if "grid" in spec:
         keys, seen, out = list(spec["grid"]), set(), []
@@ -63,10 +64,10 @@ def configurations(spec):
             key = json.dumps(options, sort_keys=True)
             if key not in seen:
                 seen.add(key)
-                out.append((grid_name(values), options, None))
+                out.append((grid_name(values), options, None, None))
         return out
-    return [(c["name"], {**base, **{k: v for k, v in c.items() if k not in ("name", "est_cost_usd")}}, c.get("est_cost_usd"))
-            for c in spec["configs"]]
+    return [(c["name"], {**base, **{k: v for k, v in c.items() if k not in ("name", "est_cost_usd", "seeds")}},
+             c.get("est_cost_usd"), c.get("seeds")) for c in spec["configs"]]
 
 
 def finished(folder, tag, seed):
@@ -84,7 +85,8 @@ def main():
     spec = json.load(open(cli.config))
     folder = os.path.join(HERE, "logs", spec["name"])
     configs = configurations(spec)
-    runs = [(seed, name, options, est) for seed in spec["seeds"] for name, options, est in configs]
+    all_seeds = sorted({s for _, _, _, seeds in configs for s in seeds or spec["seeds"]})
+    runs = [(seed, name, options, est) for seed in all_seeds for name, options, est, seeds in configs if seed in (seeds or spec["seeds"])]
 
     lock = threading.Lock()
     spent, costs, running, failed = 0.0, {}, {}, []  # costs: (model, n) -> finished run costs
@@ -113,7 +115,7 @@ def main():
         else:
             todo.append((seed, name, options, est))
     total_est = sum(estimate(o, e) for _, _, o, e in todo)
-    print(f"{spec['name']}: {len(configs)} configurations x {len(spec['seeds'])} seeds = {len(runs)} runs; "
+    print(f"{spec['name']}: {len(configs)} configurations, {len(runs)} runs; "
           f"{len(runs) - len(todo)} already done (${spent:.2f}); {len(todo)} to go, estimated ${total_est:.2f}; "
           f"budget ${spec['budget_usd']}")
     if cli.dry_run:

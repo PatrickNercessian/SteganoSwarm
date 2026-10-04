@@ -20,8 +20,14 @@ def main():
     files = [f for p in cli.paths for f in (sorted(glob.glob(os.path.join(p, "*.json"))) if os.path.isdir(p) else [p])]
     rows = []
     for f in files:
-        summary = json.load(open(f)).get("summary")
+        run = json.load(open(f))
+        summary = run.get("summary")
         if summary:  # runs from before summaries existed have none
+            # Recount from the saved interviews: knowing any plan detail counts as knowing about the party (runs saved before
+            # this rule only counted agents that stated the party outright)
+            party = f"A surprise party for {run['birthday']} is being planned."
+            summary["knows_party"] = sum(party in run["learned"][n] or bool(run["plan_known"][n])
+                                         for n, r in run["roles"].items() if r != "infected")
             rows.append({"file": os.path.basename(f), **summary})
     if not rows:
         print("No run summaries found.")
